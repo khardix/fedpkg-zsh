@@ -1,0 +1,2 @@
+This is zsh-completion for the [Fedora](http://www.fedoraproject.org) packaging
+tool [fedpkg](https://fedorahosted.org/fedpkg/).

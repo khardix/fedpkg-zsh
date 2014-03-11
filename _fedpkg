@@ -1,0 +1,234 @@
+#compdef fedpkg
+
+# ### Helper functions ###
+koji_targets() {
+  local -a targets
+
+  koji list-targets --quiet | awk '{print $1}' | while read target
+    do targets+=($target); done
+
+  _describe -t targets 'possible targets' targets
+}
+
+git_branches() {
+  local -a br_local
+  local -a br_remote
+
+  # get local branches
+  git branch | sed 's/\*//' | while read branch; do br_local+=($branch); done
+  # get remote branches
+  git branch -r | tail -n +2 | sed 's/origin\///g' | while read branch
+    do br_remote+=($branch); done
+
+  _describe -t local-branches 'local branches' br_local
+  _describe -t remote-branches 'remote branches' br_remote
+}
+
+# Build
+_fedpkg_build() {
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '--arches=[build for specific arches]:architectures:(i686 x86_64 ppc ppc64 armv7hl)' \
+    '--md5[use md5 checksums]' \
+    '--nowait[do not wait on build]' \
+    '--target=[build for specified target]: :->targets' \
+    '--background[run build at low priority]' \
+    '--skip-tag[do not attempt to tag result]' \
+    '--scratch[perform a scratch build]' \
+    '--srpm=[build from srpm, generate from current content if file not provided]::srpm:'"_files" \
+    && return
+
+  case $state in
+    (targets) koji_targets ;;
+  esac
+}
+
+# Chain-build
+_fedpkg_chain-build() {
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -s -S :\
+    '(- :)'{--help,-h}'[show help message]' \
+    '--arches=[build for specific arches]:architectures:(i686 x86_64 ppc ppc64 armv7hl)' \
+    '--md5[use md5 checksums]' \
+    '--nowait[do not wait on build]' \
+    '--target=[build for specified target]: :->targets' \
+    '--background[run the build at low priority]' \
+    && return
+
+  case $state in
+    (targets) koji_targets ;;
+  esac
+}
+
+# Clean
+_fedpkg_clean() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '(-n --dry-run)'{-n,--dry-run}'[only print would-be deleted files]' \
+    '-x[do not follow .gitignore rules]' && return
+}
+
+# Clog
+_fedpkg_clog() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '--raw[generate raw clog, without twiddling the contents]' && return
+}
+
+# Clone
+_fedpkg_clone() {
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -s -S :\
+    '(- :)'{--help,-h}'[show help message]' \
+    {--branches,-B}'[do old style checkout with subdirs for branches]' \
+    {--branch,-b}'=[checkout a specific branch]:remote branch:' \
+    {--anonymous,-a}'[checkout a module anonymously]' \
+    && return
+}
+
+# Commit
+_fedpkg_commit() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '(-c --clog -m --message -F --file)'{-c,--clog}'[generate commit message from changelog]' \
+    '(-m --message -F --file)''--raw[do not adjust the clog]' \
+    {-t,--tag}'[create a tag for this commit]' \
+    '(-c --clog -m --message -F --file)'{-m,--message}'=[set commit message]:commit message: '\
+    '(-c --clog -m --message -F --file)'{-F,--file}'=[take commit message from file]:file:_files' \
+    {-p,--push}'[push after commit]' \
+    '*::files to commit:_files' && return
+}
+_fedpkg_ci() { _fedpkg_commit }
+
+# Compile
+_fedpkg_compile() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '--builddir=[set alternate builddir]:build directory:_files -/ ' \
+    '--arch=[prepare for specific arch]:architecture: ' \
+    '--short-circuit[shot circuit compile]' \
+    && return
+}
+
+# Diff
+_fedpkg_diff() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '--cached[view staged changes]' \
+    '*::diff for specific files:_files' && return
+}
+
+# New sources
+_fedpkg_new-sources() {
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '*::new source file:_files' && return
+}
+
+# Switch-branch
+_fedpkg_switch-branch() {
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -s -C -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '(:)'{-l,--list}'[list all (local and remote) branches]' \
+    '(- :):branches:->fillbranch'
+
+  case $state in
+    (fillbranch) git_branches ;;
+  esac
+}
+
+# Command lists and descriptions
+_fedpkg_commands() {
+  local -a main_targets
+  main_targets=(
+    help:'Show usage'
+    build:'Request build'
+    chain-build:'Build current package in order with other packages'
+    clean:'Remove untracked files'
+    clog:'Make a clog file containing top changelog entry'
+    'clone':'Clone and checkout a module'
+    co:'Alias for clone'
+    commit:'Commit changes'
+    ci:'Alias for commit'
+    compile:'Local test rpmbuild compile'
+    diff:'Show changes between commits, commit and working tree, etc'
+    gimmespec:'Print the spec file name'
+    gitbuildhash:'Print the git hash used to build the provided n-v-r'
+    giturl:'Print the git url for building'
+    import:'Import srpm content into a module'
+    install:'Local test rpmbuild install'
+    lint:'Run rpmlint against local spec and build output if present.'
+    'local':'Local test rpmbuild binary'
+    mockbuild:'Local test build using mock'
+    mock-config:'Generate a mock config'
+    new:'Diff against last tag'
+    new-sources:'Upload new source files'
+    patch:'Create and add a gendiff patch file'
+    prep:'Local test rpmbuild prep'
+    pull:'Pull changes from remote repository and update working copy.'
+    push:'Push changes to remote repository'
+    scratch-build:'Request scratch build'
+    sources:'Download source files'
+    srpm:'Create a source rpm'
+    switch-branch:'Work with branches'
+    tag:'Management of git tags'
+    unused-patches:'Print list of patches not referenced by name in the specfile'
+    upload:'Upload source files'
+    verify-files:'Locally verify %files section'
+    verrel:'Print the name-version-release'
+    retire:'Retire a package'
+    tag-request:'Submit current build nvr as a releng tag request'
+    update:'Submit last build as an update'
+  )
+
+  integer ec=1
+
+  _describe -t commands 'main commands' main_targets && ec=0
+
+  return ec
+}
+
+# main completion function
+_fedpkg() {
+  local integer ec # Exit code
+
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -C :\
+    '(- :)'{-h,--help}'[display help message]' \
+    {--config,-C}'=[specify a config file to use]:files:_files' \
+    '--dist=[override distribution]: : ' \
+    '--user=[override user name]: : ' \
+    '--path=[define working directory]:directories:_directories' \
+    '(-q -v)-v[run with verbose debug output]' \
+    '(-v -q)-q[run quietly, display only errors]' \
+    '(-): :->commands' \
+    '(-)*:: :->sub-options' && return
+
+  case $state in
+    (commands) _fedpkg_commands && ec=0 ;;
+    (sub-options) curcontext=${curcontext%:*:*}:fedpkg-$words[1]:
+
+      if (( $+functions[_fedpkg_$words[1]] )); then
+        _call_function ec _fedpkg_$words[1]
+      else
+        _message "unknown sub-command ${words[1]}"
+      fi
+      ;;
+  esac
+
+  return ec
+}
+
+_fedpkg "$@"
