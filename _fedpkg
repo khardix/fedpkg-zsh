@@ -125,6 +125,34 @@ _fedpkg_diff() {
     '*::diff for specific files:_files' && return
 }
 
+# Mock build
+_fedpkg_mockbuild() {
+  local curcontext=$curcontext state line
+  declare -A opt_args
+
+  _arguments -s -S :\
+    '(- :)'{-h,--help}'[show help message]' \
+    '--root=[override mock root]:available mock roots:->mockroot' \
+    '--md5[use md5 checksums]' \
+    '(-n --no-clean)'{-n,--no-clean}'[do not clean chroot before build]' \
+    '--no-cleanup-after[do not clean chroot after build]' \
+    '(-N --no-clean-all)'{-N,--no-clean-all}'[alias for --no-clean --no-cleanup-after]' \
+    && return
+
+  describe_roots() {
+    local -a roots
+
+    # Get roots from filesystem
+    ls /etc/mock/*.cfg|sed 's|^/etc/mock/\(.*\)\.cfg$|\1|'|while read r; do roots+=($r); done
+
+    _describe -t mock-root 'available mock roots' roots
+  }
+
+  case $state in
+    (mockroot) describe_roots ;;
+  esac
+}
+
 # New sources
 _fedpkg_new-sources() {
   _arguments -s -S :\
